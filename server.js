@@ -17,19 +17,22 @@ let agents = [{
     code: "A001",
     name: "Sup",
     status: "Available",
-    lastStatusChange: new Date().toISOString()
+    lastStatusChange: new Date().toISOString(),
+    loginTime: null
 },
 {
     code: "A004",
     name: "Supi",
     status: "Available",
-    lastStatusChange: new Date().toISOString()
+    lastStatusChange: new Date().toISOString(),
+    loginTime: null
 },
 {
     code: "A005",
     name: "Supa",
     status: "Available",
-    lastStatusChange: new Date().toISOString()
+    lastStatusChange: new Date().toISOString(),
+    loginTime: null
 }];
 
 app.get('/', (req, res) => {
@@ -61,6 +64,79 @@ app.get('/api/agents/count', (req, res) => {
         success: true,
         count: agents.length,
         timestamp: new Date().toISOString()
+    });
+});
+
+// Agent Login API
+app.post('/api/agents/:code/login', (req, res) => {
+    const agentCode = req.params.code;
+    const { name } = req.body;
+    
+    // 1. หา agent หรือสร้างใหม่
+    let agent = agents.find(a => a.code === agentCode);
+    
+    if (!agent) {
+        // สร้าง agent ใหม่ถ้าไม่พบ
+        agent = {
+            code: agentCode,
+            name: name || `Agent ${agentCode}`,
+            status: "Available",
+            lastStatusChange: new Date().toISOString(),
+            loginTime: new Date().toISOString()
+        };
+        agents.push(agent);
+    } else {
+        // อัพเดท agent ที่มีอยู่
+        agent.status = "Available";
+        agent.lastStatusChange = new Date().toISOString();
+        agent.loginTime = new Date().toISOString();
+        if (name) agent.name = name; // อัพเดทชื่อถ้ามีการส่งมา
+    }
+
+    console.log(`[${new Date().toISOString()}] Agent ${agentCode} logged in`);
+
+    // 4. ส่ง response
+    res.json({
+        success: true,
+        message: `Agent ${agentCode} logged in successfully`,
+        data: agent
+    });
+});
+
+// Agent Logout API - ตาม requirements
+app.post('/api/agents/:code/logout', (req, res) => {
+    const agentCode = req.params.code;
+
+    // หา agent ในระบบ
+    const agent = agents.find(a => a.code === agentCode);
+    
+    if (!agent) {
+        return res.status(404).json({
+            success: false,
+            error: "Agent not found"
+        });
+    }
+
+    // บันทึกสถานะเดิมไว้ (เพื่อ log)
+    const oldStatus = agent.status;
+
+    // เปลี่ยน status เป็น Offline และลบ loginTime
+    agent.status = "Offline";
+    agent.lastStatusChange = new Date().toISOString();
+    const loginTime = agent.loginTime;
+    agent.loginTime = null;
+
+    console.log(`[${new Date().toISOString()}] Agent ${agentCode} logged out`);
+
+    // ส่ง response กลับ
+    res.json({
+        success: true,
+        message: `Agent ${agentCode} logged out successfully`,
+        data: {
+            ...agent,
+            previousStatus: oldStatus,
+            loginDuration: loginTime ? Math.round((new Date() - new Date(loginTime)) / 1000) + " seconds" : "N/A"
+        }
     });
 });
 
